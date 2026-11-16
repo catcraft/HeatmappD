@@ -1,0 +1,14 @@
+{
+  "domain": "heatmap",
+  "name": "Heatmap",
+  "codeowners": ["@catcraft"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "file_upload", "image"],
+  "documentation": "https://github.com/catcraft/HeatmappD",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/catcraft/HeatmappD/issues",
+  "loggers": ["custom_components.heatmap"],
+  "requirements": ["numpy>=1.26", "Pillow>=10.0"],
+  "version": "1.0.0"
+}

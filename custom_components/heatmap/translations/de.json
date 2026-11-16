@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Heatmap hinzufügen",
+        "data": {
+          "name": "Name",
+          "floorplan_file_id": "Grundrissbild"
+        }
+      },
+      "sensors": {
+        "title": "Temperatursensoren auswählen",
+        "data": {
+          "sensors": "Sensoren"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "general": "Allgemeine Einstellungen",
+          "sensors": "Sensoren",
+          "replace_floorplan": "Grundriss ersetzen"
+        }
+      },
+      "general": {
+        "title": "General",
+        "data": {
+          "vmin": "Minimum temperature (blue)",
+          "vmax": "Maximum temperature (red)",
+          "power": "IDW power",
+          "opacity": "Overlay opacity",
+          "colormap": "Colormap",
+          "wall_threshold": "Wall threshold (0-255)",
+          "downscale": "Compute grid downscale",
+          "show_markers": "Show sensor markers",
+          "marker_radius": "Marker radius (px)",
+          "font_size": "Label font size (px)",
+          "auto_text_color": "Auto-invert label colour for contrast",
+          "update_interval": "Refresh interval (seconds, 0 disables)",
+          "debug_walls": "Highlight walls in red (debug)"
+        }
+      },
+      "sensors": {
+        "title": "Sensors",
+        "data": {
+          "sensors": "Sensors"
+        }
+      },
+      "replace_floorplan": {
+        "title": "Replace floorplan",
+        "data": {
+          "floorplan_file_id": "New floorplan image"
+        }
+      }
+    }
+  }
+}
