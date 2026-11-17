@@ -2,12 +2,16 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from pathlib import Path
 from .const import *
 from .coordinator import HeatmapCoordinator
 from .frontend import JSModuleRegistration
 from .storage import async_remove_floorplan, async_save_uploaded_floorplan
 from .websocket import async_register_websocket_commands
+
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

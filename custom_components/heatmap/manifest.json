@@ -1,6 +1,7 @@
 {
   "domain": "heatmap",
   "name": "Heatmap",
+  "categories": ["sensors", "helpers.calculate_value"],
   "codeowners": ["@catcraft"],
   "config_flow": true,
   "dependencies": ["frontend", "http", "file_upload", "image"],
@@ -9,6 +10,6 @@
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/catcraft/HeatmappD/issues",
   "loggers": ["custom_components.heatmap"],
-  "requirements": ["numpy>=1.26", "Pillow>=10.0"],
+  "requirements": ["numpy>=1.26"],
   "version": "1.0.0"
 }
