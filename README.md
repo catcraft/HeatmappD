@@ -1,4 +1,4 @@
-# Heatmap
+# HeatmapD
 
 <img src="Docs/icon.png" width="96" align="right">
 
@@ -13,7 +13,15 @@ Turn any floorplan into a live thermal heatmap using your existing Home Assistan
 
 ## Installation
 
-You can install this custom component via HACS as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/) using `https://github.com/catcraft/HeatmappD` (category: Integration). Alternatively, clone or copy the `custom_components/heatmap` folder into the `custom_components` folder of your Home Assistant, then restart Home Assistant.
+<!-- ha-marketplace:exclude-start -->
+[![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=catcraft&repository=HeatmappD&category=integration)
+
+On Home Assistant before 2026.11, use this button instead:
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=catcraft&repository=HeatmappD&category=integration)
+
+You can also install this custom component via HACS as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/) using `https://github.com/catcraft/HeatmappD` (category: Integration). Alternatively, clone or copy the `custom_components/heatmap` folder into the `custom_components` folder of your Home Assistant, then restart Home Assistant.
+<!-- ha-marketplace:exclude-end -->
 
 After the restart, add the integration under **Settings → Devices & Services → Add Integration → Heatmap**, upload your floorplan image and pick your temperature sensors.
 
