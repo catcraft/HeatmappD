@@ -14,6 +14,10 @@
           "sensors": "Sensoren"
         }
       }
+    },
+    "error": {
+      "invalid_image": "Die Datei konnte nicht als Bild gelesen werden. Verwende eine PNG-, JPEG- oder WebP-Datei.",
+      "image_too_large": "Das Bild ist zu gross. Verwende einen Grundriss mit höchstens 40 Megapixeln (zum Beispiel 8000 × 5000)."
     }
   },
   "options": {
@@ -26,34 +30,59 @@
         }
       },
       "general": {
-        "title": "General",
+        "title": "Allgemein",
         "data": {
-          "vmin": "Minimum temperature (blue)",
-          "vmax": "Maximum temperature (red)",
-          "power": "IDW power",
-          "opacity": "Overlay opacity",
-          "colormap": "Colormap",
-          "wall_threshold": "Wall threshold (0-255)",
-          "downscale": "Compute grid downscale",
-          "show_markers": "Show sensor markers",
-          "marker_radius": "Marker radius (px)",
-          "font_size": "Label font size (px)",
-          "auto_text_color": "Auto-invert label colour for contrast",
-          "update_interval": "Refresh interval (seconds, 0 disables)",
-          "debug_walls": "Highlight walls in red (debug)"
+          "vmin": "Minimalwert (kaltes Ende)",
+          "vmax": "Maximalwert (warmes Ende)",
+          "power": "IDW-Exponent",
+          "opacity": "Deckkraft der Überlagerung",
+          "colormap": "Farbskala",
+          "wall_threshold": "Wandschwelle (0-255)",
+          "downscale": "Rechenraster verkleinern",
+          "show_markers": "Sensormarker anzeigen",
+          "marker_radius": "Markerradius",
+          "font_size": "Schriftgrösse der Beschriftung",
+          "auto_text_color": "Beschriftungsfarbe automatisch für Kontrast anpassen",
+          "update_interval": "Aktualisierungsintervall (0 deaktiviert)",
+          "debug_walls": "Wände rot hervorheben (Debug)"
         }
       },
       "sensors": {
-        "title": "Sensors",
+        "title": "Sensoren",
         "data": {
-          "sensors": "Sensors"
+          "sensors": "Sensoren"
         }
       },
       "replace_floorplan": {
-        "title": "Replace floorplan",
+        "title": "Grundriss ersetzen",
         "data": {
-          "floorplan_file_id": "New floorplan image"
+          "floorplan_file_id": "Neues Grundrissbild"
         }
+      }
+    },
+    "error": {
+      "invalid_image": "Die Datei konnte nicht als Bild gelesen werden. Verwende eine PNG-, JPEG- oder WebP-Datei.",
+      "image_too_large": "Das Bild ist zu gross. Verwende einen Grundriss mit höchstens 40 Megapixeln (zum Beispiel 8000 × 5000).",
+      "vmax_not_above_vmin": "Das Maximum muss grösser als das Minimum sein."
+    }
+  },
+  "exceptions": {
+    "floorplan_missing": {
+      "message": "Das Grundrissbild fehlt ({path}). Lade es in den Optionen der Integration unter «Grundriss ersetzen» erneut hoch."
+    },
+    "render_failed": {
+      "message": "Die Heatmap konnte nicht gerendert werden: {error}"
+    }
+  },
+  "selector": {
+    "colormap": {
+      "options": {
+        "jet": "Jet",
+        "coolwarm": "Coolwarm",
+        "turbo": "Turbo",
+        "viridis": "Viridis",
+        "plasma": "Plasma",
+        "inferno": "Inferno"
       }
     }
   }

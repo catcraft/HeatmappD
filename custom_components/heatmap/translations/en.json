@@ -14,6 +14,10 @@
           "sensors": "Sensors"
         }
       }
+    },
+    "error": {
+      "invalid_image": "The file could not be read as an image. Use a PNG, JPEG or WebP file.",
+      "image_too_large": "The image is too large. Use a floorplan with at most 40 megapixels (for example 8000 × 5000)."
     }
   },
   "options": {
@@ -28,18 +32,18 @@
       "general": {
         "title": "General",
         "data": {
-          "vmin": "Minimum temperature (blue)",
-          "vmax": "Maximum temperature (red)",
+          "vmin": "Minimum value (cold end)",
+          "vmax": "Maximum value (hot end)",
           "power": "IDW power",
           "opacity": "Overlay opacity",
           "colormap": "Colormap",
           "wall_threshold": "Wall threshold (0-255)",
           "downscale": "Compute grid downscale",
           "show_markers": "Show sensor markers",
-          "marker_radius": "Marker radius (px)",
-          "font_size": "Label font size (px)",
+          "marker_radius": "Marker radius",
+          "font_size": "Label font size",
           "auto_text_color": "Auto-invert label colour for contrast",
-          "update_interval": "Refresh interval (seconds, 0 disables)",
+          "update_interval": "Refresh interval (0 disables)",
           "debug_walls": "Highlight walls in red (debug)"
         }
       },
@@ -54,6 +58,31 @@
         "data": {
           "floorplan_file_id": "New floorplan image"
         }
+      }
+    },
+    "error": {
+      "invalid_image": "The file could not be read as an image. Use a PNG, JPEG or WebP file.",
+      "image_too_large": "The image is too large. Use a floorplan with at most 40 megapixels (for example 8000 × 5000).",
+      "vmax_not_above_vmin": "Maximum must be greater than minimum."
+    }
+  },
+  "exceptions": {
+    "floorplan_missing": {
+      "message": "The floorplan image is missing ({path}). Use \"Replace floorplan\" in the integration options to upload it again."
+    },
+    "render_failed": {
+      "message": "The heatmap could not be rendered: {error}"
+    }
+  },
+  "selector": {
+    "colormap": {
+      "options": {
+        "jet": "Jet",
+        "coolwarm": "Coolwarm",
+        "turbo": "Turbo",
+        "viridis": "Viridis",
+        "plasma": "Plasma",
+        "inferno": "Inferno"
       }
     }
   }
