@@ -12,11 +12,12 @@ _MANIFEST = json.loads(
 )
 INTEGRATION_VERSION: Final[str] = _MANIFEST.get("version", "0.0.0")
 URL_BASE: Final = "/heatmap"
+CARD_FILENAME: Final = "heatmap-card.js"
 
 JSMODULES: Final = [
     {
         "name": "Heatmap Card",
-        "filename": "heatmap-card.js",
+        "filename": CARD_FILENAME,
         "version": INTEGRATION_VERSION,
     },
     {
@@ -32,7 +33,8 @@ CONF_X: Final = "x"
 CONF_Y: Final = "y"
 CONF_LABEL: Final = "label"
 CONF_FLOORPLAN_FILE_ID: Final = "floorplan_file_id"
-CONF_FLOORPLAN_PATH: Final = "floorplan_path"
+CONF_FLOORPLAN_PATH: Final = "floorplan_path"  # legacy (absolute path), migrated away
+CONF_FLOORPLAN_FOLDER: Final = "floorplan_folder"
 CONF_FLOORPLAN_WIDTH: Final = "floorplan_width"
 CONF_FLOORPLAN_HEIGHT: Final = "floorplan_height"
 CONF_VMIN: Final = "vmin"
@@ -50,12 +52,15 @@ CONF_FONT_SIZE: Final = "font_size"
 CONF_AUTO_TEXT_COLOR: Final = "auto_text_color"
 DEFAULT_VMIN: Final = 18.0
 DEFAULT_VMAX: Final = 28.0
+# Defaults for installations that use °F.
+DEFAULT_VMIN_F: Final = 64.0
+DEFAULT_VMAX_F: Final = 82.0
 DEFAULT_POWER: Final = 2.0
 DEFAULT_OPACITY: Final = 0.9
 DEFAULT_COLORMAP: Final = "jet"
 DEFAULT_DEBUG_WALLS: Final = False
 DEFAULT_WALL_THRESHOLD: Final = 200
-DEFAULT_DOWNSCALE: Final = 2
+DEFAULT_DOWNSCALE: Final = 1.2
 DEFAULT_SHOW_MARKERS: Final = True
 DEFAULT_MARKER_RADIUS: Final = 20
 DEFAULT_UPDATE_INTERVAL: Final = 60
@@ -65,3 +70,8 @@ STATE_CHANGE_DEBOUNCE: Final = 2.0
 VALID_COLORMAPS: Final = ("jet", "coolwarm", "turbo", "viridis", "plasma", "inferno")
 STORAGE_SUBDIR: Final = "heatmap"
 FLOORPLAN_FILENAME: Final = "floorplan.png"
+# 40 megapixels, e.g. 8000 x 5000. Larger plans use too much memory on small
+# hosts (each render keeps several full-size copies).
+MAX_FLOORPLAN_PIXELS: Final = 40_000_000
+# Longest side of the marker-free preview the card editor shows.
+PREVIEW_MAX_SIDE: Final = 1600
