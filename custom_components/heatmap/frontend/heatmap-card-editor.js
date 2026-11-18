@@ -1,8 +1,22 @@
-const EDITOR_VERSION = "1.0.2";
+const EDITOR_VERSION = "1.0.3";
+const AUTO_SAVE_DELAY_MS = 1000;
+
+/*
+ * Layouts waiting for the dashboard's Save button, keyed by the
+ * layout_revision token written into the card config. Shared with the card,
+ * which sends the layout to the integration once the config is saved.
+ */
+const PENDING_LAYOUTS = (window.__heatmapPendingLayouts ??= new Map());
+
+function newLayoutRevision() {
+  return (
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+  );
+}
 
 class HeatmapCardEditor extends HTMLElement {
   connectedCallback() {
-    if (!this._rendered) {
+    if (!this._rendered && !this._renderPending) {
       this._render();
     }
   }
@@ -10,14 +24,72 @@ class HeatmapCardEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
 
-    if (!this._rendered) {
+    // hass is set on every state change; start at most one first render.
+    if (!this._rendered && !this._renderPending) {
       this._render();
     }
   }
 
   setConfig(config) {
+    const previousEntity = this._config?.entity;
     this._config = config || {};
-    this._render();
+
+    if (this._initialRevision === undefined) {
+      this._initialRevision = this._config.layout_revision ?? null;
+    }
+
+    /*
+     * Home Assistant calls setConfig again after every config-changed event.
+     * Re-rendering then would reload positions from the server and throw
+     * away the markers the user just dragged, so only re-render when the
+     * selected entity changes.
+     */
+    if (!this._rendered || previousEntity !== this._config.entity) {
+      this._render();
+    } else {
+      this._syncControls();
+    }
+  }
+
+  _syncControls() {
+    const autoSave = this.shadowRoot?.getElementById("auto-save");
+
+    if (autoSave) {
+      autoSave.checked = Boolean(this._config?.auto_save);
+    }
+
+    this._updateHint();
+  }
+
+  _hintText() {
+    return this._config?.auto_save
+      ? "Marker positions are saved automatically."
+      : "Marker positions are applied when you press Save.";
+  }
+
+  _updateHint() {
+    const hint = this.shadowRoot?.getElementById("save-hint");
+
+    if (hint) {
+      hint.textContent = this._hintText();
+    }
+  }
+
+  _pendingFor(entryId) {
+    const pending = PENDING_LAYOUTS.get(this._config?.layout_revision);
+    return pending && pending.entryId === entryId ? pending : null;
+  }
+
+  _configWithoutPending() {
+    const config = { ...this._config };
+
+    if (this._initialRevision === null) {
+      delete config.layout_revision;
+    } else {
+      config.layout_revision = this._initialRevision;
+    }
+
+    return config;
   }
 
   async _fetchEntries() {
@@ -31,6 +103,18 @@ class HeatmapCardEditor extends HTMLElement {
       type: "heatmap/get_entry",
       entry_id: entryId,
     });
+  }
+
+  /*
+   * The heatmap without markers: the image entity has the saved markers
+   * drawn in, which would show the old positions under the dragged ones.
+   */
+  async _fetchPreview(entryId) {
+    const result = await this._hass.callWS({
+      type: "heatmap/render_preview",
+      entry_id: entryId,
+    });
+    return `data:${result.content_type};base64,${result.data}`;
   }
 
   async _saveSensors(entryId, sensors) {
@@ -64,65 +148,55 @@ class HeatmapCardEditor extends HTMLElement {
       this.attachShadow({ mode: "open" });
     }
 
+    /*
+     * Renders can overlap (setConfig with a new entity while the first render
+     * still waits for the server). Only the newest one may touch the DOM.
+     */
+    const token = (this._renderToken = (this._renderToken ?? 0) + 1);
+    const isCurrent = () => token === this._renderToken;
+    this._renderPending = true;
+
     try {
       const entries = await this._fetchEntries();
 
-      const imageEntities = Object.keys(this._hass.states)
-        .filter((entityId) => entityId.startsWith("image."))
-        .sort();
-
-      const selectedEntity =
-        this._config?.entity || imageEntities[0] || "";
-
-      /*
-       * Home Assistant does not always expose config_entry_id through
-       * hass.entities. First try normal registry matching.
-       */
-      const registryItem = Object.values(
-        this._hass.entities || {},
-      ).find((entity) => entity.entity_id === selectedEntity);
-
-      let entryId = registryItem?.config_entry_id || null;
-
-      /*
-       * If only one Heatmap integration entry exists, use it automatically.
-       */
-      if (!entryId && entries.length === 1) {
-        entryId = entries[0].entry_id;
+      // Each entry lists its own image entities (from the entity registry).
+      const entryByEntity = new Map();
+      for (const entry of entries) {
+        for (const entityId of entry.entity_ids ?? []) {
+          entryByEntity.set(entityId, entry);
+        }
       }
 
-      /*
-       * Fallback for multiple Heatmap entries:
-       * match the selected image entity with the integration entry title.
-       */
-      if (!entryId && entries.length > 1 && selectedEntity) {
-        const entityObjectId = selectedEntity
-          .replace(/^image\./, "")
-          .toLowerCase();
+      const imageEntities = [...entryByEntity.keys()].sort();
+      const configured = this._config?.entity || "";
 
-        const normalizedEntityName = entityObjectId
-          .replaceAll("_", " ")
-          .trim();
-
-        const matchingEntry = entries.find((entry) => {
-          const title = String(entry.title || "")
-            .toLowerCase()
-            .trim();
-
-          const normalizedTitleObjectId = title.replaceAll(" ", "_");
-
-          return (
-            title === normalizedEntityName ||
-            normalizedTitleObjectId === entityObjectId
-          );
-        });
-
-        entryId = matchingEntry?.entry_id || null;
+      // Keep a configured entity in the list even if it is not a heatmap,
+      // so the select shows what the card really uses.
+      if (configured && !entryByEntity.has(configured)) {
+        imageEntities.unshift(configured);
       }
 
-      const currentEntry = entryId
-        ? await this._fetchEntry(entryId)
-        : null;
+      const selectedEntity = configured || imageEntities[0] || "";
+      const entryId = entryByEntity.get(selectedEntity)?.entry_id ?? null;
+
+      let currentEntry = null;
+      let previewUrl = null;
+      let previewError = null;
+
+      if (entryId) {
+        [currentEntry, previewUrl] = await Promise.all([
+          this._fetchEntry(entryId),
+          this._fetchPreview(entryId).catch((error) => {
+            console.error("Failed to render Heatmap preview:", error);
+            previewError = error?.message || String(error);
+            return null;
+          }),
+        ]);
+      }
+
+      if (!isCurrent()) {
+        return;
+      }
 
       this.shadowRoot.innerHTML = `
         <style>
@@ -153,6 +227,12 @@ class HeatmapCardEditor extends HTMLElement {
 
           label {
             min-width: 130px;
+          }
+
+          input.checkbox {
+            flex: 0 0 auto;
+            width: 18px;
+            height: 18px;
           }
 
           select,
@@ -285,11 +365,22 @@ class HeatmapCardEditor extends HTMLElement {
                     .join("")
                 : `
                   <option value="">
-                    No image entities found
+                    No Heatmap image entities found
                   </option>
                 `
             }
           </select>
+        </div>
+
+        <div class="row">
+          <label for="auto-save">Auto-save layout</label>
+
+          <input
+            id="auto-save"
+            class="checkbox"
+            type="checkbox"
+            ${this._config?.auto_save ? "checked" : ""}
+          >
         </div>
 
         <div class="row">
@@ -304,11 +395,15 @@ class HeatmapCardEditor extends HTMLElement {
 
         ${
           currentEntry
-            ? this._placer(currentEntry, selectedEntity)
+            ? this._placer(currentEntry, previewUrl, previewError)
             : `
               <p class="error">
-                No matching Heatmap entry was found.
-                Found ${entries.length} Heatmap integration entries.
+                ${
+                  selectedEntity
+                    ? `${this._escapeHtml(selectedEntity)} does not belong to a
+                      loaded Heatmap integration entry.`
+                    : "Add the Heatmap integration first."
+                }
               </p>
             `
         }
@@ -338,6 +433,10 @@ class HeatmapCardEditor extends HTMLElement {
 
       this._rendered = true;
     } catch (error) {
+      if (!isCurrent()) {
+        return;
+      }
+
       console.error("Failed to render Heatmap editor:", error);
 
       this.shadowRoot.innerHTML = `
@@ -346,16 +445,22 @@ class HeatmapCardEditor extends HTMLElement {
           ${this._escapeHtml(error?.message || String(error))}
         </p>
       `;
+      // Do not retry on every state change; reopening the editor retries.
+      this._rendered = true;
+    } finally {
+      if (isCurrent()) {
+        this._renderPending = false;
+      }
     }
   }
 
-  _placer(entry, selectedEntity) {
-    const sensors = entry.options?.sensors || [];
+  _placer(entry, previewUrl, previewError) {
+    const sensors =
+      this._pendingFor(entry.entry_id)?.sensors ||
+      entry.options?.sensors ||
+      [];
     const width = Number(entry.floorplan?.width || 0);
     const height = Number(entry.floorplan?.height || 0);
-
-    const entityPicture =
-      this._hass.states[selectedEntity]?.attributes?.entity_picture || "";
 
     if (!width || !height) {
       return `
@@ -366,23 +471,15 @@ class HeatmapCardEditor extends HTMLElement {
       `;
     }
 
-    if (!entityPicture) {
+    if (!previewUrl) {
       return `
         <p class="error">
-          The selected image entity does not provide an entity_picture
-          attribute.
+          The floorplan preview could not be rendered${
+            previewError ? `: ${this._escapeHtml(previewError)}` : "."
+          }
         </p>
       `;
     }
-
-    /*
-     * Convert Home Assistant's relative entity_picture URL into a complete URL.
-     * This also keeps the access token contained in the entity_picture URL.
-     */
-    const imageUrl =
-      typeof this._hass.hassUrl === "function"
-        ? this._hass.hassUrl(entityPicture)
-        : entityPicture;
 
     return `
       <div class="placement-header">
@@ -407,7 +504,7 @@ class HeatmapCardEditor extends HTMLElement {
         >
           <img
             id="floorplan-image"
-            src="${this._escapeHtml(imageUrl)}"
+            src="${this._escapeHtml(previewUrl)}"
             alt="${this._escapeHtml(
               entry.title || "Heatmap floorplan",
             )}"
@@ -466,20 +563,14 @@ class HeatmapCardEditor extends HTMLElement {
       }
 
       <div class="actions">
-        <button
-          id="save"
-          type="button"
-          ${sensors.length === 0 ? "disabled" : ""}
-        >
-          Save layout
-        </button>
-
         <button id="reload" type="button">
-          Reload
+          Discard changes
         </button>
 
         <span id="status" class="status"></span>
       </div>
+
+      <p id="save-hint" class="status">${this._hintText()}</p>
     `;
   }
 
@@ -494,7 +585,9 @@ class HeatmapCardEditor extends HTMLElement {
     const height = Number(placer.dataset.h);
 
     const sensors = structuredClone(
-      entry.options?.sensors || [],
+      this._pendingFor(entry.entry_id)?.sensors ||
+        entry.options?.sensors ||
+        [],
     );
 
     const status = this.shadowRoot.getElementById("status");
@@ -502,14 +595,86 @@ class HeatmapCardEditor extends HTMLElement {
 
     let draggingMarker = null;
     let draggingPointerId = null;
+    let moved = false;
 
-    const stopDragging = () => {
-      if (draggingMarker) {
-        draggingMarker.classList.remove("dragging");
+    const setStatus = (text, isError = false) => {
+      if (!status) {
+        return;
       }
 
+      status.textContent = text;
+      status.classList.toggle("error", isError);
+    };
+
+    const saveNow = async (layout) => {
+      setStatus("Saving...");
+
+      try {
+        await this._saveSensors(entry.entry_id, layout);
+        setStatus("Layout saved.");
+      } catch (error) {
+        console.error("Failed to save sensor positions:", error);
+        setStatus(`Save failed: ${error?.message || String(error)}`, true);
+      }
+    };
+
+    const layoutChanged = () => {
+      if (this._config?.auto_save) {
+        clearTimeout(this._autoSaveTimer);
+        setStatus("Unsaved changes...");
+        const layout = structuredClone(sensors);
+        this._autoSaveTimer = setTimeout(
+          () => saveNow(layout),
+          AUTO_SAVE_DELAY_MS,
+        );
+        return;
+      }
+
+      /*
+       * Reuse only a token this editor session created. A token from an
+       * earlier session may still be waiting in PENDING_LAYOUTS; reusing it
+       * would leave the config unchanged and the dialog's Save button grey.
+       */
+      let revision = this._sessionRevision;
+
+      if (!revision || this._config?.layout_revision !== revision) {
+        revision = newLayoutRevision();
+        this._sessionRevision = revision;
+
+        // Drop older unsaved layouts of this heatmap so they never apply later.
+        for (const [key, value] of PENDING_LAYOUTS) {
+          if (value.entryId === entry.entry_id) {
+            PENDING_LAYOUTS.delete(key);
+          }
+        }
+      }
+
+      PENDING_LAYOUTS.set(revision, {
+        entryId: entry.entry_id,
+        sensors: structuredClone(sensors),
+      });
+
+      if (this._config?.layout_revision !== revision) {
+        // Changing the config enables the dialog's Save button.
+        this._configChanged({ ...this._config, layout_revision: revision });
+      }
+
+      setStatus("Unsaved layout changes.");
+    };
+
+    const stopDragging = () => {
+      if (!draggingMarker) {
+        return;
+      }
+
+      draggingMarker.classList.remove("dragging");
       draggingMarker = null;
       draggingPointerId = null;
+
+      if (moved) {
+        moved = false;
+        layoutChanged();
+      }
     };
 
     for (const marker of placer.querySelectorAll(".marker")) {
@@ -583,6 +748,8 @@ class HeatmapCardEditor extends HTMLElement {
         (displayY / rect.height) * height,
       );
 
+      moved = true;
+
       if (status) {
         status.classList.remove("error");
         status.textContent =
@@ -606,44 +773,37 @@ class HeatmapCardEditor extends HTMLElement {
     });
 
     this.shadowRoot
-      .getElementById("save")
-      ?.addEventListener("click", async (event) => {
-        const saveButton = event.currentTarget;
+      .getElementById("auto-save")
+      ?.addEventListener("change", (event) => {
+        const config = { ...this._config, auto_save: event.target.checked };
+        const pending = this._pendingFor(entry.entry_id);
 
-        if (status) {
-          status.classList.remove("error");
-          status.textContent = "Saving...";
+        /*
+         * Turning auto-save on while changes are pending saves them now, so
+         * they do not wait for a Save that would no longer apply them.
+         */
+        if (event.target.checked && pending) {
+          PENDING_LAYOUTS.delete(this._config.layout_revision);
+          this._config = config;
+          this._configChanged(this._configWithoutPending());
+          saveNow(pending.sensors);
+        } else {
+          this._configChanged(config);
         }
 
-        saveButton.disabled = true;
-
-        try {
-          await this._saveSensors(entry.entry_id, sensors);
-
-          if (status) {
-            status.classList.remove("error");
-            status.textContent = "Layout saved.";
-          }
-        } catch (error) {
-          console.error(
-            "Failed to save sensor positions:",
-            error,
-          );
-
-          if (status) {
-            status.textContent =
-              `Save failed: ${error?.message || String(error)}`;
-
-            status.classList.add("error");
-          }
-        } finally {
-          saveButton.disabled = sensors.length === 0;
-        }
+        this._updateHint();
       });
 
     this.shadowRoot
       .getElementById("reload")
       ?.addEventListener("click", () => {
+        clearTimeout(this._autoSaveTimer);
+
+        if (this._pendingFor(entry.entry_id)) {
+          PENDING_LAYOUTS.delete(this._config.layout_revision);
+          this._configChanged(this._configWithoutPending());
+        }
+
         this._render();
       });
   }
