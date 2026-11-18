@@ -1,4 +1,0 @@
-reload_frontend:
-  name: Reload Heatmap frontend
-  description: Clears the browser cache and reloads the current page.
-  fields: {}
